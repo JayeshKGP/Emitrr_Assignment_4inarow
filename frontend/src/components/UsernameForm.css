@@ -1,0 +1,109 @@
+.username-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #ecfeff 100%);
+  padding: 20px;
+}
+
+.username-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 8px 32px rgba(2, 69, 139, 0.15);
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  border: 1px solid rgba(2, 69, 139, 0.1);
+}
+
+.game-title {
+  font-size: 2.5rem;
+  color: #02458b;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.game-subtitle {
+  color: #0369a1;
+  font-size: 1rem;
+  margin-bottom: 30px;
+  opacity: 0.8;
+}
+
+.username-form { margin-bottom: 30px; }
+
+.username-input {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 1rem;
+  border: 2px solid #bae6fd;
+  border-radius: 12px;
+  background: #f0f9ff;
+  color: #0c4a6e;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.username-input:focus {
+  border-color: #02458b;
+  box-shadow: 0 0 0 3px rgba(2, 69, 139, 0.1);
+  background: #fff;
+}
+
+.username-input::placeholder { color: #7dd3fc; }
+
+.error-message {
+  color: #ec4899;
+  font-size: 0.85rem;
+  margin: 10px 0;
+}
+
+.play-button {
+  width: 100%;
+  padding: 14px 28px;
+  margin-top: 15px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #02458b 0%, #0369a1 100%);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.play-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(2, 69, 139, 0.3);
+}
+
+.play-button:active { transform: scale(0.98); }
+
+.game-rules {
+  text-align: left;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #bae6fd;
+}
+
+.game-rules h3 {
+  color: #02458b;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.game-rules ul {
+  color: #0369a1;
+  padding-left: 18px;
+  margin: 0;
+}
+
+.game-rules li {
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}

@@ -1,0 +1,50 @@
+.cell {
+  width: 64px;
+  height: 64px;
+  background: #013a73;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  margin: 4px;
+}
+
+.cell.clickable { cursor: pointer; }
+
+.disc {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+
+.disc.empty {
+  background: linear-gradient(145deg, #e8f4fc, #d1e9f6);
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Player 1 - Light Blue */
+.disc.red {
+  background: linear-gradient(145deg, #38bdf8, #0ea5e9);
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.25),
+              inset 0 -2px 4px rgba(0, 0, 0, 0.2),
+              0 2px 8px rgba(56, 189, 248, 0.4);
+}
+
+/* Player 2 - Pink */
+.disc.yellow {
+  background: linear-gradient(145deg, #f472b6, #ec4899);
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.25),
+              inset 0 -2px 4px rgba(0, 0, 0, 0.2),
+              0 2px 8px rgba(236, 72, 153, 0.4);
+}
+
+/* Hover highlight */
+.disc.highlight { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1); }
+.disc.highlight-red { background: rgba(56, 189, 248, 0.3); border: 3px dashed #38bdf8; }
+.disc.highlight-yellow { background: rgba(236, 72, 153, 0.3); border: 3px dashed #ec4899; }
+
+/* Responsive */
+@media (max-width: 500px) {
+  .cell { width: 44px; height: 44px; margin: 3px; border-radius: 6px; }
+  .disc { width: 36px; height: 36px; }
+}
