@@ -1,0 +1,108 @@
+.waiting-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #ecfeff 100%);
+  padding: 20px;
+}
+
+.waiting-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 8px 32px rgba(2, 69, 139, 0.15);
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  border: 1px solid rgba(2, 69, 139, 0.1);
+}
+
+.waiting-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid #e0f2fe;
+  border-top-color: #02458b;
+  border-radius: 50%;
+  margin: 0 auto 24px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.waiting-title {
+  color: #02458b;
+  font-size: 1.4rem;
+  margin: 0 0 24px 0;
+}
+
+.room-info {
+  margin-bottom: 20px;
+}
+
+.room-label {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin: 0 0 10px 0;
+}
+
+.room-code-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #f0f9ff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 2px solid #bae6fd;
+}
+
+.room-code {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #02458b;
+  font-family: 'SF Mono', 'Courier New', monospace;
+}
+
+.copy-btn {
+  background: #02458b;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.copy-btn:hover {
+  background: #0369a1;
+}
+
+.waiting-hint {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin: 0 0 24px 0;
+}
+
+.cancel-btn {
+  background: #fff;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  padding: 12px 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}

@@ -127,7 +127,55 @@
 .turn-text { color: #0c4a6e; font-size: 1rem; font-weight: 600; }
 .winner-text { color: #059669; font-size: 1.1rem; font-weight: 700; }
 .draw-text { color: #d97706; font-size: 1.1rem; font-weight: 700; }
+.loser-text { color: #dc2626; font-size: 1.1rem; font-weight: 700; }
 .timeout-text { color: #dc2626; font-size: 1.1rem; font-weight: 700; }
+
+/* Score Display */
+.score-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.score-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 2px solid #bae6fd;
+  min-width: 100px;
+}
+
+.score-box.player1 { border-color: #38bdf8; }
+.score-box.player2 { border-color: #f472b6; }
+
+.score-name {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.score-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #02458b;
+}
+
+.score-vs {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.waiting-opponent {
+  color: #64748b;
+  font-style: italic;
+  padding: 12px 24px;
+}
 
 /* Board */
 .board {

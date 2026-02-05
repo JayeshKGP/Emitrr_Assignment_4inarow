@@ -12,6 +12,8 @@ backend/bin
 .env.development.local
 .env.test.local
 .env.production.local
+frontend/.env
+backend/.env
 
 # Testing
 frontend/coverage

@@ -1,22 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Cell from './Cell';
+import wsService from '../services/websocket';
 import './GameBoard.css';
 
-// Game constants
 const ROWS = 6;
 const COLS = 7;
 const MOVE_TIME_LIMIT = 30;
-const GAME_TIME_LIMIT = 240; // 4 minutes
+const GAME_TIME_LIMIT = 240;
 
 const createEmptyBoard = () => Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
 
-function GameBoard({ username, onBackToMenu }) {
-  // Game state
+function GameBoard({ username, gameData, onBackToLobby }) {
   const [board, setBoard] = useState(createEmptyBoard());
-  const [currentPlayer, setCurrentPlayer] = useState(1);
+  const [currentTurn, setCurrentTurn] = useState(gameData.currentTurn);
   const [hoverColumn, setHoverColumn] = useState(null);
   const [gameStatus, setGameStatus] = useState('playing');
   const [winner, setWinner] = useState(null);
+  const [winnerName, setWinnerName] = useState('');
+  const [myScore, setMyScore] = useState(gameData.yourScore || 0);
+  const [opponentScore, setOpponentScore] = useState(gameData.opponentScore || 0);
+  const [playAgainRequested, setPlayAgainRequested] = useState(false);
+
+  const myNumber = gameData.yourNumber;
+  const opponent = gameData.opponent;
+  const isMyTurn = currentTurn === myNumber;
 
   // Timer state
   const [gameStartTime, setGameStartTime] = useState(Date.now());
@@ -24,32 +31,96 @@ function GameBoard({ username, onBackToMenu }) {
   const [gameTimeLeft, setGameTimeLeft] = useState(GAME_TIME_LIMIT);
   const [moveTimeLeft, setMoveTimeLeft] = useState(MOVE_TIME_LIMIT);
 
-  // Find lowest empty row in a column (-1 if full)
-  const getLowestEmptyRow = (col) => {
+  // WebSocket event handlers
+  useEffect(() => {
+    const handleGameState = (data) => {
+      if (data.board) {
+        // Convert 0 to null for empty cells
+        const newBoard = data.board.map(row =>
+          row.map(cell => cell === 0 ? null : cell)
+        );
+        setBoard(newBoard);
+      }
+      setCurrentTurn(data.currentTurn);
+      setMoveStartTime(Date.now());
+      setMoveTimeLeft(MOVE_TIME_LIMIT);
+    };
+
+    const handleOpponentMove = () => {
+      // Move received, state will update via game_state
+    };
+
+    const handleGameOver = (data) => {
+      setGameStatus('finished');
+      setWinner(data.winner);
+      setWinnerName(data.winnerName);
+      setMyScore(data.yourScore);
+      setOpponentScore(data.opponentScore);
+    };
+
+    const handleGameStart = (data) => {
+      // New game started (play again)
+      setBoard(createEmptyBoard());
+      setCurrentTurn(data.currentTurn);
+      setGameStatus('playing');
+      setWinner(null);
+      setWinnerName('');
+      setMyScore(data.yourScore);
+      setOpponentScore(data.opponentScore);
+      setGameStartTime(Date.now());
+      setMoveStartTime(Date.now());
+      setGameTimeLeft(GAME_TIME_LIMIT);
+      setMoveTimeLeft(MOVE_TIME_LIMIT);
+      setPlayAgainRequested(false);
+    };
+
+    const handlePlayAgainReq = () => {
+      setPlayAgainRequested(true);
+    };
+
+    const handleError = (data) => {
+      console.error('Game error:', data?.message);
+    };
+
+    wsService.on('game_state', handleGameState);
+    wsService.on('opponent_move', handleOpponentMove);
+    wsService.on('game_over', handleGameOver);
+    wsService.on('game_start', handleGameStart);
+    wsService.on('play_again_request', handlePlayAgainReq);
+    wsService.on('error', handleError);
+
+    return () => {
+      wsService.off('game_state', handleGameState);
+      wsService.off('opponent_move', handleOpponentMove);
+      wsService.off('game_over', handleGameOver);
+      wsService.off('game_start', handleGameStart);
+      wsService.off('play_again_request', handlePlayAgainReq);
+      wsService.off('error', handleError);
+    };
+  }, []);
+
+  // Find lowest empty row
+  const getLowestEmptyRow = useCallback((col) => {
     for (let row = ROWS - 1; row >= 0; row--) {
       if (board[row][col] === null) return row;
     }
     return -1;
-  };
-
-  // Switch turn on move timeout
-  const handleMoveTimeout = useCallback(() => {
-    if (gameStatus !== 'playing') return;
-    setCurrentPlayer(prev => prev === 1 ? 2 : 1);
-    setMoveStartTime(Date.now());
-    setMoveTimeLeft(MOVE_TIME_LIMIT);
-  }, [gameStatus]);
+  }, [board]);
 
   // Move timer effect
   useEffect(() => {
     if (gameStatus !== 'playing') return;
     const timer = setInterval(() => {
       const remaining = MOVE_TIME_LIMIT - Math.floor((Date.now() - moveStartTime) / 1000);
-      if (remaining <= 0) handleMoveTimeout();
-      else setMoveTimeLeft(remaining);
+      if (remaining <= 0) {
+        setMoveTimeLeft(0);
+        // Server handles timeout
+      } else {
+        setMoveTimeLeft(remaining);
+      }
     }, 1000);
     return () => clearInterval(timer);
-  }, [moveStartTime, gameStatus, handleMoveTimeout]);
+  }, [moveStartTime, gameStatus]);
 
   // Game timer effect
   useEffect(() => {
@@ -66,68 +137,24 @@ function GameBoard({ username, onBackToMenu }) {
     return () => clearInterval(timer);
   }, [gameStartTime, gameStatus]);
 
-  // Check for 4 in a row from last move position
-  const checkWin = (board, row, col, player) => {
-    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
-
-    for (const [dRow, dCol] of directions) {
-      let count = 1;
-
-      // Count in positive direction
-      for (let r = row + dRow, c = col + dCol;
-           r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player;
-           r += dRow, c += dCol) count++;
-
-      // Count in negative direction
-      for (let r = row - dRow, c = col - dCol;
-           r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player;
-           r -= dRow, c -= dCol) count++;
-
-      if (count >= 4) return true;
-    }
-    return false;
-  };
-
-  // Check if board is full (draw)
-  const checkDraw = (board) => board[0].every(cell => cell !== null);
-
-  // Handle player move
+  // Handle column click
   const handleColumnClick = (col) => {
-    if (gameStatus !== 'playing') return;
+    if (gameStatus !== 'playing' || !isMyTurn) return;
+    if (getLowestEmptyRow(col) === -1) return;
 
-    const row = getLowestEmptyRow(col);
-    if (row === -1) return;
-
-    const newBoard = board.map(r => [...r]);
-    newBoard[row][col] = currentPlayer;
-    setBoard(newBoard);
-
-    if (checkWin(newBoard, row, col, currentPlayer)) {
-      setGameStatus('won');
-      setWinner(currentPlayer);
-      return;
-    }
-
-    if (checkDraw(newBoard)) {
-      setGameStatus('draw');
-      return;
-    }
-
-    setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
-    setMoveStartTime(Date.now());
-    setMoveTimeLeft(MOVE_TIME_LIMIT);
+    wsService.makeMove(col);
   };
 
-  // Reset game to initial state
-  const handleResetGame = () => {
-    setBoard(createEmptyBoard());
-    setCurrentPlayer(1);
-    setGameStatus('playing');
-    setWinner(null);
-    setGameStartTime(Date.now());
-    setMoveStartTime(Date.now());
-    setGameTimeLeft(GAME_TIME_LIMIT);
-    setMoveTimeLeft(MOVE_TIME_LIMIT);
+  // Play again
+  const handlePlayAgain = () => {
+    wsService.playAgain();
+    setPlayAgainRequested(true);
+  };
+
+  // Leave game
+  const handleLeave = () => {
+    wsService.leaveRoom();
+    onBackToLobby();
   };
 
   const formatTime = (seconds) => {
@@ -142,14 +169,33 @@ function GameBoard({ username, onBackToMenu }) {
     return 'timer-box';
   };
 
+  const getResultMessage = () => {
+    if (winner === 0 || winnerName === 'draw') return "It's a Draw!";
+    if (winner === myNumber) return '🎉 You Win!';
+    return `${opponent} Wins!`;
+  };
+
   return (
     <div className="game-container">
       {/* Header */}
       <div className="game-header">
-        <button className="back-button" onClick={onBackToMenu}>← Back</button>
+        <button className="back-button" onClick={handleLeave}>← Leave</button>
         <h1 className="game-title-small">FourSync</h1>
         <div className="player-info">
           <span className="player-name">{username}</span>
+        </div>
+      </div>
+
+      {/* Score Display */}
+      <div className="score-display">
+        <div className={`score-box ${myNumber === 1 ? 'player1' : 'player2'}`}>
+          <span className="score-name">{username}</span>
+          <span className="score-value">{myScore}</span>
+        </div>
+        <span className="score-vs">vs</span>
+        <div className={`score-box ${myNumber === 1 ? 'player2' : 'player1'}`}>
+          <span className="score-name">{opponent}</span>
+          <span className="score-value">{opponentScore}</span>
         </div>
       </div>
 
@@ -169,18 +215,17 @@ function GameBoard({ username, onBackToMenu }) {
       <div className="turn-indicator">
         {gameStatus === 'playing' && (
           <>
-            <span className={`turn-disc ${currentPlayer === 1 ? 'red' : 'yellow'}`} />
+            <span className={`turn-disc ${currentTurn === 1 ? 'red' : 'yellow'}`} />
             <span className="turn-text">
-              {currentPlayer === 1 ? `${username}'s Turn` : "Opponent's Turn"}
+              {isMyTurn ? 'Your Turn' : `${opponent}'s Turn`}
             </span>
           </>
         )}
-        {gameStatus === 'won' && (
-          <span className="winner-text">
-            🎉 {winner === 1 ? `${username} Wins!` : 'Opponent Wins!'}
+        {gameStatus === 'finished' && (
+          <span className={winner === myNumber ? 'winner-text' : winner === 0 ? 'draw-text' : 'loser-text'}>
+            {getResultMessage()}
           </span>
         )}
-        {gameStatus === 'draw' && <span className="draw-text">It's a Draw!</span>}
         {gameStatus === 'timeout' && <span className="timeout-text">Time's Up!</span>}
       </div>
 
@@ -190,7 +235,7 @@ function GameBoard({ username, onBackToMenu }) {
           <div key={rowIndex} className="board-row">
             {row.map((cell, colIndex) => {
               const targetRow = getLowestEmptyRow(colIndex);
-              const isHighlighted = hoverColumn === colIndex && rowIndex === targetRow && gameStatus === 'playing';
+              const isHighlighted = hoverColumn === colIndex && rowIndex === targetRow && gameStatus === 'playing' && isMyTurn;
 
               return (
                 <Cell
@@ -199,9 +244,9 @@ function GameBoard({ username, onBackToMenu }) {
                   onClick={() => handleColumnClick(colIndex)}
                   onMouseEnter={() => setHoverColumn(colIndex)}
                   onMouseLeave={() => setHoverColumn(null)}
-                  isClickable={gameStatus === 'playing' && targetRow !== -1}
+                  isClickable={gameStatus === 'playing' && isMyTurn && targetRow !== -1}
                   isHighlighted={isHighlighted}
-                  currentPlayer={currentPlayer}
+                  currentPlayer={myNumber}
                 />
               );
             })}
@@ -212,8 +257,12 @@ function GameBoard({ username, onBackToMenu }) {
       {/* Game Over Actions */}
       {gameStatus !== 'playing' && (
         <div className="game-over-actions">
-          <button className="reset-button" onClick={handleResetGame}>Play Again</button>
-          <button className="menu-button" onClick={onBackToMenu}>Main Menu</button>
+          {playAgainRequested ? (
+            <span className="waiting-opponent">Waiting for opponent...</span>
+          ) : (
+            <button className="reset-button" onClick={handlePlayAgain}>Play Again</button>
+          )}
+          <button className="menu-button" onClick={handleLeave}>Leave Game</button>
         </div>
       )}
     </div>

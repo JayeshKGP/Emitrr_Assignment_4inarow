@@ -1,0 +1,131 @@
+// WebSocket service for game communication
+
+const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8080/ws';
+
+class WebSocketService {
+  constructor() {
+    this.ws = null;
+    this.listeners = {};
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+  }
+
+  connect() {
+    return new Promise((resolve, reject) => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        resolve();
+        return;
+      }
+
+      this.ws = new WebSocket(WS_URL);
+
+      this.ws.onopen = () => {
+        console.log('WebSocket connected');
+        this.reconnectAttempts = 0;
+        resolve();
+      };
+
+      this.ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        this.emit('disconnected', null);
+        this.attemptReconnect();
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        reject(error);
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          this.emit(message.type, message.payload);
+        } catch (err) {
+          console.error('Error parsing message:', err);
+        }
+      };
+    });
+  }
+
+  attemptReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.emit('reconnect_failed', null);
+      return;
+    }
+
+    this.reconnectAttempts++;
+    console.log(`Attempting reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+
+    setTimeout(() => {
+      this.connect().catch(() => {});
+    }, 2000 * this.reconnectAttempts);
+  }
+
+  disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+
+  send(type, payload = {}) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type, payload }));
+    } else {
+      console.error('WebSocket not connected');
+    }
+  }
+
+  // Event handling
+  on(event, callback) {
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event].push(callback);
+  }
+
+  off(event, callback) {
+    if (this.listeners[event]) {
+      this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
+    }
+  }
+
+  emit(event, data) {
+    if (this.listeners[event]) {
+      this.listeners[event].forEach(callback => callback(data));
+    }
+  }
+
+  // Game actions
+  login(username) {
+    this.send('login', { username });
+  }
+
+  joinRoom(roomId, username) {
+    this.send('join_room', { roomId, username });
+  }
+
+  joinRandom(username) {
+    this.send('join_random', { username });
+  }
+
+  makeMove(column) {
+    this.send('make_move', { column });
+  }
+
+  leaveRoom() {
+    this.send('leave_room');
+  }
+
+  playAgain() {
+    this.send('play_again');
+  }
+
+  cancelSearch() {
+    this.send('cancel_search');
+  }
+}
+
+// Singleton instance
+const wsService = new WebSocketService();
+export default wsService;

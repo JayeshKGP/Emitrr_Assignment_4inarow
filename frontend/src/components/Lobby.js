@@ -1,0 +1,113 @@
+import React, { useState } from 'react';
+import './Lobby.css';
+
+function Lobby({ username, playerStats, onlineCount, error, onJoinRandom, onJoinRoom, onCreateRoom, onLogout }) {
+  const [roomInput, setRoomInput] = useState('');
+  const [showJoinRoom, setShowJoinRoom] = useState(false);
+
+  const handleJoinRoom = (e) => {
+    e.preventDefault();
+    if (roomInput.trim().length >= 4) {
+      onJoinRoom(roomInput.trim().toUpperCase());
+    }
+  };
+
+  return (
+    <div className="lobby-container">
+      <div className="lobby-card">
+        {/* Header */}
+        <div className="lobby-header">
+          <h1 className="lobby-title">FourSync</h1>
+          <div className="user-info">
+            <span className="username-display">{username}</span>
+            <button className="logout-btn" onClick={onLogout}>Logout</button>
+          </div>
+        </div>
+
+        {/* Player Stats */}
+        <div className="player-stats">
+          <div className="stat-item">
+            <span className="stat-value">{playerStats.totalGames}</span>
+            <span className="stat-label">Games</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-value">{playerStats.totalWins}</span>
+            <span className="stat-label">Wins</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-value">{playerStats.totalScore}</span>
+            <span className="stat-label">Score</span>
+          </div>
+        </div>
+
+        {/* Online Count */}
+        <div className="online-status">
+          <span className="online-dot"></span>
+          <span>{onlineCount} player{onlineCount !== 1 ? 's' : ''} online</span>
+        </div>
+
+        {/* Error Message */}
+        {error && <div className="error-banner">{error}</div>}
+
+        {/* Actions */}
+        <div className="lobby-actions">
+          <button className="action-btn primary" onClick={onJoinRandom}>
+            <span className="btn-icon">🎲</span>
+            <span className="btn-text">
+              <strong>Random Match</strong>
+              <small>Find an opponent automatically</small>
+            </span>
+          </button>
+
+          <button className="action-btn secondary" onClick={onCreateRoom}>
+            <span className="btn-icon">➕</span>
+            <span className="btn-text">
+              <strong>Create Room</strong>
+              <small>Get a code to share with a friend</small>
+            </span>
+          </button>
+
+          <button
+            className="action-btn secondary"
+            onClick={() => setShowJoinRoom(!showJoinRoom)}
+          >
+            <span className="btn-icon">🔗</span>
+            <span className="btn-text">
+              <strong>Join Room</strong>
+              <small>Enter a room code</small>
+            </span>
+          </button>
+
+          {showJoinRoom && (
+            <form className="join-room-form" onSubmit={handleJoinRoom}>
+              <input
+                type="text"
+                value={roomInput}
+                onChange={(e) => setRoomInput(e.target.value.toUpperCase())}
+                placeholder="Enter Room Code"
+                maxLength={6}
+                className="room-input"
+                autoFocus
+              />
+              <button type="submit" className="join-btn" disabled={roomInput.length < 4}>
+                Join
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Rules */}
+        <div className="lobby-rules">
+          <h3>How to Play</h3>
+          <ul>
+            <li>Take turns dropping discs into columns</li>
+            <li>Connect 4 discs in a row to win</li>
+            <li>Win: +2 points | Draw: +1 point</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Lobby;

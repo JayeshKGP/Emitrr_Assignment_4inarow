@@ -1,25 +1,28 @@
 import React, { useState } from 'react';
 import './UsernameForm.css';
 
-function UsernameForm({ onSubmit }) {
+function UsernameForm({ onSubmit, isLoading, error: serverError }) {
   const [username, setUsername] = useState('');
-  const [error, setError] = useState('');
+  const [validationError, setValidationError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const trimmed = username.trim();
 
     if (trimmed.length < 3) {
-      setError('Username must be at least 3 characters');
+      setValidationError('Username must be at least 3 characters');
       return;
     }
     if (trimmed.length > 15) {
-      setError('Username must be less than 15 characters');
+      setValidationError('Username must be less than 15 characters');
       return;
     }
 
+    setValidationError('');
     onSubmit(trimmed);
   };
+
+  const displayError = validationError || serverError;
 
   return (
     <div className="username-container">
@@ -35,9 +38,12 @@ function UsernameForm({ onSubmit }) {
             placeholder="Enter your username"
             className="username-input"
             autoFocus
+            disabled={isLoading}
           />
-          {error && <p className="error-message">{error}</p>}
-          <button type="submit" className="play-button">Play Game</button>
+          {displayError && <p className="error-message">{displayError}</p>}
+          <button type="submit" className="play-button" disabled={isLoading}>
+            {isLoading ? 'Logging in...' : 'Play Game'}
+          </button>
         </form>
 
         <div className="game-rules">
