@@ -24,6 +24,7 @@ type GameRecord struct {
 	Player2ID       string  `json:"player2_id"`
 	WinnerID        *string `json:"winner_id"`
 	IsDraw          bool    `json:"is_draw"`
+	IsBotGame       bool    `json:"is_bot_game"`
 	TotalMoves      int     `json:"total_moves"`
 	DurationSeconds int     `json:"duration_seconds"`
 }
@@ -35,6 +36,7 @@ type GameInput struct {
 	Player2Username string
 	WinnerUsername  *string
 	IsDraw          bool
+	IsBotGame       bool
 	TotalMoves      int
 	DurationSeconds int
 }
@@ -43,6 +45,7 @@ type GameInput struct {
 type LeaderboardEntry struct {
 	Username   string  `json:"username"`
 	TotalWins  int     `json:"total_wins"`
+	TotalDraws int     `json:"total_draws"`
 	TotalGames int     `json:"total_games"`
 	TotalScore int     `json:"total_score"`
 	WinRate    float64 `json:"win_rate"`
@@ -59,6 +62,7 @@ type PlayerWithStats struct {
 	PlayerID   string `json:"player_id"`
 	Username   string `json:"username"`
 	TotalWins  int    `json:"total_wins"`
+	TotalDraws int    `json:"total_draws"`
 	TotalGames int    `json:"total_games"`
 	TotalScore int    `json:"total_score"`
 }
@@ -152,12 +156,14 @@ func (c *Client) LoginPlayer(username string) (*PlayerWithStats, error) {
 		PlayerID:   playerID,
 		Username:   username,
 		TotalWins:  0,
+		TotalDraws: 0,
 		TotalGames: 0,
 		TotalScore: 0,
 	}
 
 	if len(entries) > 0 {
 		stats.TotalWins = entries[0].TotalWins
+		stats.TotalDraws = entries[0].TotalDraws
 		stats.TotalGames = entries[0].TotalGames
 		stats.TotalScore = entries[0].TotalScore
 	}
@@ -199,6 +205,7 @@ func (c *Client) SaveGame(input GameInput) error {
 		Player2ID:       player2ID,
 		WinnerID:        winnerID,
 		IsDraw:          input.IsDraw,
+		IsBotGame:       input.IsBotGame,
 		TotalMoves:      input.TotalMoves,
 		DurationSeconds: input.DurationSeconds,
 	}

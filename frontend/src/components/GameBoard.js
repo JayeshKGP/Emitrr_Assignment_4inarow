@@ -20,10 +20,12 @@ function GameBoard({ username, gameData, onBackToLobby }) {
   const [myScore, setMyScore] = useState(gameData.yourScore || 0);
   const [opponentScore, setOpponentScore] = useState(gameData.opponentScore || 0);
   const [playAgainRequested, setPlayAgainRequested] = useState(false);
+  const [lastMove, setLastMove] = useState(null); // {row, col} of last move
 
   const myNumber = gameData.yourNumber;
   const opponent = gameData.opponent;
   const isMyTurn = currentTurn === myNumber;
+  const isBotGame = gameData.isBotGame || false;
 
   // Timer state
   const [gameStartTime, setGameStartTime] = useState(Date.now());
@@ -39,7 +41,22 @@ function GameBoard({ username, gameData, onBackToLobby }) {
         const newBoard = data.board.map(row =>
           row.map(cell => cell === 0 ? null : cell)
         );
-        setBoard(newBoard);
+
+        // Find the last move by comparing with previous board
+        setBoard(prevBoard => {
+          // Find the new disc position (last move)
+          for (let row = 0; row < ROWS; row++) {
+            for (let col = 0; col < COLS; col++) {
+              const prevCell = prevBoard[row][col];
+              const newCell = newBoard[row][col];
+              if (prevCell === null && newCell !== null) {
+                setLastMove({ row, col });
+                break;
+              }
+            }
+          }
+          return newBoard;
+        });
       }
       setCurrentTurn(data.currentTurn);
       setMoveStartTime(Date.now());
@@ -72,6 +89,7 @@ function GameBoard({ username, gameData, onBackToLobby }) {
       setGameTimeLeft(GAME_TIME_LIMIT);
       setMoveTimeLeft(MOVE_TIME_LIMIT);
       setPlayAgainRequested(false);
+      setLastMove(null); // Reset last move indicator
     };
 
     const handlePlayAgainReq = () => {
@@ -189,11 +207,27 @@ function GameBoard({ username, gameData, onBackToLobby }) {
       {/* Score Display */}
       <div className="score-display">
         <div className={`score-box ${myNumber === 1 ? 'player1' : 'player2'}`}>
+          <div className={`player-avatar ${myNumber === 1 ? 'p1' : 'p2'}`}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </div>
           <span className="score-name">{username}</span>
           <span className="score-value">{myScore}</span>
         </div>
         <span className="score-vs">vs</span>
         <div className={`score-box ${myNumber === 1 ? 'player2' : 'player1'}`}>
+          <div className={`player-avatar ${myNumber === 1 ? 'p2' : 'p1'} ${isBotGame ? 'bot' : ''}`}>
+            {isBotGame ? (
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A1.5 1.5 0 0 0 6 14.5A1.5 1.5 0 0 0 7.5 16A1.5 1.5 0 0 0 9 14.5A1.5 1.5 0 0 0 7.5 13m9 0a1.5 1.5 0 0 0-1.5 1.5a1.5 1.5 0 0 0 1.5 1.5a1.5 1.5 0 0 0 1.5-1.5a1.5 1.5 0 0 0-1.5-1.5M12 9a5 5 0 0 0-5 5v1h10v-1a5 5 0 0 0-5-5z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            )}
+          </div>
           <span className="score-name">{opponent}</span>
           <span className="score-value">{opponentScore}</span>
         </div>
@@ -236,6 +270,7 @@ function GameBoard({ username, gameData, onBackToLobby }) {
             {row.map((cell, colIndex) => {
               const targetRow = getLowestEmptyRow(colIndex);
               const isHighlighted = hoverColumn === colIndex && rowIndex === targetRow && gameStatus === 'playing' && isMyTurn;
+              const isLastMove = lastMove && lastMove.row === rowIndex && lastMove.col === colIndex;
 
               return (
                 <Cell
@@ -246,6 +281,7 @@ function GameBoard({ username, gameData, onBackToLobby }) {
                   onMouseLeave={() => setHoverColumn(null)}
                   isClickable={gameStatus === 'playing' && isMyTurn && targetRow !== -1}
                   isHighlighted={isHighlighted}
+                  isLastMove={isLastMove}
                   currentPlayer={myNumber}
                 />
               );

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/jayeshdeshmukh/connect-four-backend/internal/bot"
 	"github.com/jayeshdeshmukh/connect-four-backend/internal/database"
 	"github.com/jayeshdeshmukh/connect-four-backend/internal/models"
 	"github.com/jayeshdeshmukh/connect-four-backend/internal/room"
@@ -119,6 +120,11 @@ func (h *Hub) Login(conn *websocket.Conn, username string) {
 		return
 	}
 
+	if username == bot.BotUsername {
+		h.sendToConn(conn, models.MsgError, models.ErrorPayload{Message: "This username is reserved. Please choose another."})
+		return
+	}
+
 	// Get or create player in database
 	playerStats, err := h.db.LoginPlayer(username)
 	if err != nil {
@@ -138,6 +144,7 @@ func (h *Hub) Login(conn *websocket.Conn, username string) {
 		PlayerID:   playerStats.PlayerID,
 		Username:   playerStats.Username,
 		TotalWins:  playerStats.TotalWins,
+		TotalDraws: playerStats.TotalDraws,
 		TotalGames: playerStats.TotalGames,
 		TotalScore: playerStats.TotalScore,
 	})
@@ -224,6 +231,31 @@ func (h *Hub) CancelSearch(conn *websocket.Conn) {
 	h.removeFromWaiting(conn)
 }
 
+// PlayBot starts a game against the bot
+func (h *Hub) PlayBot(conn *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	client := h.clients[conn]
+	if client == nil {
+		return
+	}
+
+	h.removeFromWaiting(conn)
+
+	roomID := generateRoomID()
+	r := room.NewRoom(roomID)
+	h.rooms[roomID] = r
+
+	player, _ := r.AddPlayer(conn, client.Username)
+	r.AddBotPlayer(bot.BotUsername)
+
+	client.RoomID = roomID
+	client.PlayerNum = player.Number
+
+	h.startBotGame(r)
+}
+
 func (h *Hub) removeFromWaiting(conn *websocket.Conn) {
 	for i, w := range h.waiting {
 		if w.Client.Conn == conn {
@@ -236,25 +268,27 @@ func (h *Hub) removeFromWaiting(conn *websocket.Conn) {
 // MakeMove handles a player's move
 func (h *Hub) MakeMove(conn *websocket.Conn, col int) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 
 	client := h.clients[conn]
 	if client == nil || client.RoomID == "" {
+		h.mu.Unlock()
 		return
 	}
 
 	r, exists := h.rooms[client.RoomID]
 	if !exists {
+		h.mu.Unlock()
 		return
 	}
 
 	row, winner, isDraw, err := r.MakeMove(client.PlayerNum, col)
 	if err != nil {
 		h.sendToConn(conn, models.MsgError, models.ErrorPayload{Message: err.Error()})
+		h.mu.Unlock()
 		return
 	}
 
-	// Send move to opponent
+	// Send move to opponent (if human)
 	opponent := r.GetOpponent(client.PlayerNum)
 	if opponent != nil && opponent.Conn != nil {
 		h.sendToConn(opponent.Conn, models.MsgOpponentMove, models.MovePayload{Column: col})
@@ -273,6 +307,50 @@ func (h *Hub) MakeMove(conn *websocket.Conn, col int) {
 	// Handle game over
 	if winner != 0 || isDraw {
 		h.handleGameOver(r, winner, isDraw, row, col)
+		h.mu.Unlock()
+		return
+	}
+
+	// If bot game and now bot's turn, make bot move
+	if r.IsBotGame && r.GetCurrentTurn() == 2 && r.IsGameActive() {
+		roomID := r.ID
+		board := r.GetBoard()
+		h.mu.Unlock()
+
+		go h.makeBotMove(roomID, board, conn)
+		return
+	}
+
+	h.mu.Unlock()
+}
+
+func (h *Hub) makeBotMove(roomID string, board [6][7]int, playerConn *websocket.Conn) {
+	time.Sleep(800 * time.Millisecond)
+
+	botCol := bot.GetBestMove(board, 2)
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	r, exists := h.rooms[roomID]
+	if !exists || !r.IsGameActive() {
+		return
+	}
+
+	row, winner, isDraw, err := r.MakeMove(2, botCol)
+	if err != nil {
+		log.Printf("Bot move error: %v", err)
+		return
+	}
+
+	h.sendToConn(playerConn, models.MsgOpponentMove, models.MovePayload{Column: botCol})
+	h.sendToConn(playerConn, models.MsgGameState, models.GameStatePayload{
+		Board:       r.Board,
+		CurrentTurn: r.CurrentTurn,
+	})
+
+	if winner != 0 || isDraw {
+		h.handleGameOver(r, winner, isDraw, row, botCol)
 	}
 }
 
@@ -291,19 +369,16 @@ func (h *Hub) PlayAgain(conn *websocket.Conn) {
 		return
 	}
 
-	// Check if both players still in room
 	if !r.IsFull() {
 		h.sendToConn(conn, models.MsgError, models.ErrorPayload{Message: "Opponent has left"})
 		return
 	}
 
-	// Notify opponent about play again request
 	opponent := r.GetOpponent(client.PlayerNum)
 	if opponent != nil && opponent.Conn != nil {
 		h.sendToConn(opponent.Conn, models.MsgPlayAgainReq, nil)
 	}
 
-	// If game not active, start new game
 	if !r.GameActive {
 		r.StartGame()
 		h.notifyGameStart(r)
@@ -358,14 +433,25 @@ func (h *Hub) processMatchmaking() {
 
 	now := time.Now()
 
-	// Check for timeouts (10 seconds)
+	// Check for timeouts (10 seconds) - auto-assign bot
 	for i := len(h.waiting) - 1; i >= 0; i-- {
 		if now.Sub(h.waiting[i].JoinedAt) > 10*time.Second {
 			client := h.waiting[i].Client
 			h.waiting = append(h.waiting[:i], h.waiting[i+1:]...)
-			h.sendToConn(client.Conn, models.MsgSearchTimeout, models.ErrorPayload{
-				Message: "No opponent found. Try again or create a room.",
-			})
+
+			h.sendToConn(client.Conn, models.MsgBotAssigned, nil)
+
+			roomID := generateRoomID()
+			r := room.NewRoom(roomID)
+			h.rooms[roomID] = r
+
+			player, _ := r.AddPlayer(client.Conn, client.Username)
+			r.AddBotPlayer(bot.BotUsername)
+
+			client.RoomID = roomID
+			client.PlayerNum = player.Number
+
+			h.startBotGame(r)
 		}
 	}
 
@@ -404,28 +490,38 @@ func (h *Hub) notifyGameStart(r *room.Room) {
 	p2 := r.Player2
 
 	// Send to player 1
-	h.sendToConn(p1.Conn, models.MsgGameStart, models.GameStartPayload{
-		RoomID:        r.ID,
-		Opponent:      p2.Username,
-		YourNumber:    1,
-		CurrentTurn:   r.CurrentTurn,
-		YourScore:     p1.Score,
-		OpponentScore: p2.Score,
-	})
+	if p1.Conn != nil {
+		h.sendToConn(p1.Conn, models.MsgGameStart, models.GameStartPayload{
+			RoomID:        r.ID,
+			Opponent:      p2.Username,
+			YourNumber:    1,
+			CurrentTurn:   r.CurrentTurn,
+			YourScore:     p1.Score,
+			OpponentScore: p2.Score,
+			IsBotGame:     r.IsBotGame,
+		})
+	}
 
-	// Send to player 2
-	h.sendToConn(p2.Conn, models.MsgGameStart, models.GameStartPayload{
-		RoomID:        r.ID,
-		Opponent:      p1.Username,
-		YourNumber:    2,
-		CurrentTurn:   r.CurrentTurn,
-		YourScore:     p2.Score,
-		OpponentScore: p1.Score,
-	})
+	// Send to player 2 (skip if bot)
+	if p2.Conn != nil {
+		h.sendToConn(p2.Conn, models.MsgGameStart, models.GameStartPayload{
+			RoomID:        r.ID,
+			Opponent:      p1.Username,
+			YourNumber:    2,
+			CurrentTurn:   r.CurrentTurn,
+			YourScore:     p2.Score,
+			OpponentScore: p1.Score,
+			IsBotGame:     r.IsBotGame,
+		})
+	}
+}
+
+func (h *Hub) startBotGame(r *room.Room) {
+	r.StartGame()
+	h.notifyGameStart(r)
 }
 
 func (h *Hub) handleGameOver(r *room.Room, winner int, isDraw bool, row, col int) {
-	// Update scores
 	r.UpdateScores(winner)
 
 	p1 := r.Player1
@@ -444,39 +540,69 @@ func (h *Hub) handleGameOver(r *room.Room, winner int, isDraw bool, row, col int
 		winnerUsername = &p2.Username
 	}
 
-	// Send to player 1
-	h.sendToConn(p1.Conn, models.MsgGameOver, models.GameOverPayload{
-		Winner:        winner,
-		WinnerName:    winnerName,
-		YourScore:     p1.Score,
-		OpponentScore: p2.Score,
-	})
+	if p1.Conn != nil {
+		h.sendToConn(p1.Conn, models.MsgGameOver, models.GameOverPayload{
+			Winner:        winner,
+			WinnerName:    winnerName,
+			YourScore:     p1.Score,
+			OpponentScore: p2.Score,
+		})
+	}
 
-	// Send to player 2
-	h.sendToConn(p2.Conn, models.MsgGameOver, models.GameOverPayload{
-		Winner:        winner,
-		WinnerName:    winnerName,
-		YourScore:     p2.Score,
-		OpponentScore: p1.Score,
-	})
+	if p2.Conn != nil {
+		h.sendToConn(p2.Conn, models.MsgGameOver, models.GameOverPayload{
+			Winner:        winner,
+			WinnerName:    winnerName,
+			YourScore:     p2.Score,
+			OpponentScore: p1.Score,
+		})
+	}
 
-	// Save game to database
+	isBotGame := r.IsBotGame
+	roomID := r.ID
 	go func() {
 		err := h.db.SaveGame(database.GameInput{
-			RoomID:          r.ID,
+			RoomID:          roomID,
 			Player1Username: p1.Username,
 			Player2Username: p2.Username,
 			WinnerUsername:  winnerUsername,
 			IsDraw:          isDraw,
+			IsBotGame:       isBotGame,
 			TotalMoves:      r.MoveCount,
 			DurationSeconds: r.GetDuration(),
 		})
 		if err != nil {
 			log.Printf("Error saving game to database: %v", err)
 		} else {
-			log.Printf("Game saved: %s vs %s, winner: %s", p1.Username, p2.Username, winnerName)
+			log.Printf("Game saved: %s vs %s, winner: %s, bot: %v", p1.Username, p2.Username, winnerName, isBotGame)
 		}
 	}()
+
+	// Schedule room cleanup after game over (gives time for "Play Again" option)
+	// For bot games, clean up immediately since there's no "Play Again" with bot
+	if isBotGame {
+		go h.cleanupRoom(roomID, p1.Conn)
+	}
+}
+
+// cleanupRoom removes the room from memory and clears client's room reference
+func (h *Hub) cleanupRoom(roomID string, playerConn *websocket.Conn) {
+	// Small delay to ensure game over message is processed
+	time.Sleep(100 * time.Millisecond)
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Delete the room
+	delete(h.rooms, roomID)
+
+	// Clear the client's room reference
+	if client, exists := h.clients[playerConn]; exists {
+		client.RoomID = ""
+		client.PlayerNum = 0
+	}
+
+	log.Printf("Room %s cleaned up from memory", roomID)
 }
 
 func (h *Hub) broadcastOnlineCount() {

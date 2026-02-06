@@ -1,7 +1,7 @@
 import React from 'react';
 import './Cell.css';
 
-function Cell({ value, onClick, onMouseEnter, onMouseLeave, isClickable, isHighlighted, currentPlayer }) {
+function Cell({ value, onClick, onMouseEnter, onMouseLeave, isClickable, isHighlighted, isLastMove, currentPlayer }) {
   const getDiscClass = () => {
     if (value === 1) return 'disc red';
     if (value === 2) return 'disc yellow';
@@ -16,7 +16,9 @@ function Cell({ value, onClick, onMouseEnter, onMouseLeave, isClickable, isHighl
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className={getDiscClass()} />
+      <div className={getDiscClass()}>
+        {isLastMove && value && <div className="last-move-dot" />}
+      </div>
     </div>
   );
 }

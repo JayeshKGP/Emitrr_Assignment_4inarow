@@ -27,6 +27,7 @@ type Room struct {
 	StartTime   time.Time
 	MoveCount   int
 	GameActive  bool
+	IsBotGame   bool
 	mu          sync.Mutex
 }
 
@@ -54,6 +55,37 @@ func (r *Room) AddPlayer(conn *websocket.Conn, username string) (*Player, error)
 		return r.Player2, nil
 	}
 	return nil, ErrRoomFull
+}
+
+// AddBotPlayer adds bot as player 2
+func (r *Room) AddBotPlayer(botUsername string) *Player {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.Player2 = &Player{Conn: nil, Username: botUsername, Number: 2, Score: 0}
+	r.IsBotGame = true
+	return r.Player2
+}
+
+// GetBoard returns copy of current board
+func (r *Room) GetBoard() [6][7]int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.Board
+}
+
+// GetCurrentTurn returns current turn
+func (r *Room) GetCurrentTurn() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.CurrentTurn
+}
+
+// IsGameActive returns if game is active
+func (r *Room) IsGameActive() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.GameActive
 }
 
 // RemovePlayer removes a player from the room

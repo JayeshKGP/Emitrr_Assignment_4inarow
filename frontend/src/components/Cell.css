@@ -15,6 +15,10 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
 .disc.empty {
@@ -43,8 +47,31 @@
 .disc.highlight-red { background: rgba(56, 189, 248, 0.3); border: 3px dashed #38bdf8; }
 .disc.highlight-yellow { background: rgba(236, 72, 153, 0.3); border: 3px dashed #ec4899; }
 
+/* Last move indicator - white dot */
+.last-move-dot {
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8),
+              0 0 12px rgba(255, 255, 255, 0.4);
+  animation: pulse-last-move 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-last-move {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
 /* Responsive */
 @media (max-width: 500px) {
   .cell { width: 44px; height: 44px; margin: 3px; border-radius: 6px; }
   .disc { width: 36px; height: 36px; }
+  .last-move-dot { width: 10px; height: 10px; }
 }

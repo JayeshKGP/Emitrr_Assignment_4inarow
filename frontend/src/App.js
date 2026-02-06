@@ -17,7 +17,7 @@ const SCREEN = {
 function App() {
   const [screen, setScreen] = useState(SCREEN.USERNAME);
   const [username, setUsername] = useState(() => localStorage.getItem('foursync_username') || '');
-  const [playerStats, setPlayerStats] = useState({ totalWins: 0, totalGames: 0, totalScore: 0 });
+  const [playerStats, setPlayerStats] = useState({ totalWins: 0, totalDraws: 0, totalGames: 0, totalScore: 0 });
   const [roomId, setRoomId] = useState('');
   const [gameData, setGameData] = useState(null);
   const [error, setError] = useState('');
@@ -34,9 +34,10 @@ function App() {
     wsService.on('login_success', (data) => {
       setUsername(data.username);
       setPlayerStats({
-        totalWins: data.totalWins,
-        totalGames: data.totalGames,
-        totalScore: data.totalScore,
+        totalWins: data.totalWins || 0,
+        totalDraws: data.totalDraws || 0,
+        totalGames: data.totalGames || 0,
+        totalScore: data.totalScore || 0,
       });
       localStorage.setItem('foursync_username', data.username);
       setScreen(SCREEN.LOBBY);
@@ -65,6 +66,10 @@ function App() {
     wsService.on('search_timeout', (data) => {
       setError(data?.message || 'No opponent found');
       setScreen(SCREEN.LOBBY);
+    });
+
+    wsService.on('bot_assigned', () => {
+      setError('No opponent found. Playing against FourSync Bot!');
     });
 
     wsService.on('opponent_left', () => {
@@ -105,7 +110,7 @@ function App() {
     localStorage.removeItem('foursync_username');
     wsService.disconnect();
     setUsername('');
-    setPlayerStats({ totalWins: 0, totalGames: 0, totalScore: 0 });
+    setPlayerStats({ totalWins: 0, totalDraws: 0, totalGames: 0, totalScore: 0 });
     setScreen(SCREEN.USERNAME);
     setGameData(null);
     setRoomId('');
@@ -114,6 +119,11 @@ function App() {
   const handleJoinRandom = () => {
     setError('');
     wsService.joinRandom(username);
+  };
+
+  const handlePlayBot = () => {
+    setError('');
+    wsService.playBot();
   };
 
   const handleJoinRoom = (id) => {
@@ -169,6 +179,7 @@ function App() {
           onlineCount={onlineCount}
           error={error}
           onJoinRandom={handleJoinRandom}
+          onPlayBot={handlePlayBot}
           onJoinRoom={handleJoinRoom}
           onCreateRoom={handleCreateRoom}
           onLogout={handleLogout}

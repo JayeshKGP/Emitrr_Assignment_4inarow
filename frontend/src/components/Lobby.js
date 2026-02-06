@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './Lobby.css';
 
-function Lobby({ username, playerStats, onlineCount, error, onJoinRandom, onJoinRoom, onCreateRoom, onLogout }) {
+function Lobby({ username, playerStats, onlineCount, error, onJoinRandom, onPlayBot, onJoinRoom, onCreateRoom, onLogout }) {
   const [roomInput, setRoomInput] = useState('');
   const [showJoinRoom, setShowJoinRoom] = useState(false);
 
@@ -15,7 +15,6 @@ function Lobby({ username, playerStats, onlineCount, error, onJoinRandom, onJoin
   return (
     <div className="lobby-container">
       <div className="lobby-card">
-        {/* Header */}
         <div className="lobby-header">
           <h1 className="lobby-title">FourSync</h1>
           <div className="user-info">
@@ -24,38 +23,46 @@ function Lobby({ username, playerStats, onlineCount, error, onJoinRandom, onJoin
           </div>
         </div>
 
-        {/* Player Stats */}
         <div className="player-stats">
           <div className="stat-item">
-            <span className="stat-value">{playerStats.totalGames}</span>
+            <span className="stat-value">{playerStats.totalGames ?? 0}</span>
             <span className="stat-label">Games</span>
           </div>
-          <div className="stat-item">
-            <span className="stat-value">{playerStats.totalWins}</span>
+          <div className="stat-item wins">
+            <span className="stat-value">{playerStats.totalWins ?? 0}</span>
             <span className="stat-label">Wins</span>
           </div>
-          <div className="stat-item">
-            <span className="stat-value">{playerStats.totalScore}</span>
+          <div className="stat-item draws">
+            <span className="stat-value">{playerStats.totalDraws ?? 0}</span>
+            <span className="stat-label">Draws</span>
+          </div>
+          <div className="stat-item score">
+            <span className="stat-value">{playerStats.totalScore ?? 0}</span>
             <span className="stat-label">Score</span>
           </div>
         </div>
 
-        {/* Online Count */}
         <div className="online-status">
           <span className="online-dot"></span>
           <span>{onlineCount} player{onlineCount !== 1 ? 's' : ''} online</span>
         </div>
 
-        {/* Error Message */}
         {error && <div className="error-banner">{error}</div>}
 
-        {/* Actions */}
         <div className="lobby-actions">
           <button className="action-btn primary" onClick={onJoinRandom}>
             <span className="btn-icon">🎲</span>
             <span className="btn-text">
               <strong>Random Match</strong>
               <small>Find an opponent automatically</small>
+            </span>
+          </button>
+
+          <button className="action-btn bot" onClick={onPlayBot}>
+            <span className="btn-icon">🤖</span>
+            <span className="btn-text">
+              <strong>Play vs Bot</strong>
+              <small>Challenge the FourSync Bot</small>
             </span>
           </button>
 
@@ -96,7 +103,6 @@ function Lobby({ username, playerStats, onlineCount, error, onJoinRandom, onJoin
           )}
         </div>
 
-        {/* Rules */}
         <div className="lobby-rules">
           <h3>How to Play</h3>
           <ul>

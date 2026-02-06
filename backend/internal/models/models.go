@@ -8,6 +8,7 @@ const (
 	MsgLogin        = "login"
 	MsgJoinRoom     = "join_room"
 	MsgJoinRandom   = "join_random"
+	MsgPlayBot      = "play_bot"
 	MsgMakeMove     = "make_move"
 	MsgLeaveRoom    = "leave_room"
 	MsgPlayAgain    = "play_again"
@@ -16,6 +17,7 @@ const (
 	// Server -> Client
 	MsgLoginSuccess  = "login_success"
 	MsgWaiting       = "waiting"
+	MsgBotAssigned   = "bot_assigned"
 	MsgGameStart     = "game_start"
 	MsgGameState     = "game_state"
 	MsgOpponentMove  = "opponent_move"
@@ -45,6 +47,7 @@ type LoginSuccessPayload struct {
 	PlayerID   string `json:"playerId"`
 	Username   string `json:"username"`
 	TotalWins  int    `json:"totalWins"`
+	TotalDraws int    `json:"totalDraws"`
 	TotalGames int    `json:"totalGames"`
 	TotalScore int    `json:"totalScore"`
 }
@@ -72,12 +75,13 @@ type RoomCreatedPayload struct {
 
 // GameStartPayload - game is starting
 type GameStartPayload struct {
-	RoomID       string `json:"roomId"`
-	Opponent     string `json:"opponent"`
-	YourNumber   int    `json:"yourNumber"` // 1 or 2
-	CurrentTurn  int    `json:"currentTurn"`
-	YourScore    int    `json:"yourScore"`
-	OpponentScore int   `json:"opponentScore"`
+	RoomID        string `json:"roomId"`
+	Opponent      string `json:"opponent"`
+	YourNumber    int    `json:"yourNumber"`
+	CurrentTurn   int    `json:"currentTurn"`
+	YourScore     int    `json:"yourScore"`
+	OpponentScore int    `json:"opponentScore"`
+	IsBotGame     bool   `json:"isBotGame"`
 }
 
 // GameStatePayload - current game state

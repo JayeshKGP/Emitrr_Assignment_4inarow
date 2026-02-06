@@ -142,21 +142,65 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 20px;
+  padding: 12px 20px;
   background: #fff;
   border-radius: 12px;
   border: 2px solid #bae6fd;
-  min-width: 100px;
+  min-width: 110px;
 }
 
 .score-box.player1 { border-color: #38bdf8; }
 .score-box.player2 { border-color: #f472b6; }
+
+/* Player Avatar */
+.player-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.player-avatar svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Player 1 - Light Blue (matches disc) */
+.player-avatar.p1 {
+  background: linear-gradient(145deg, #38bdf8, #0ea5e9);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.4);
+}
+
+/* Player 2 - Pink (matches disc) */
+.player-avatar.p2 {
+  background: linear-gradient(145deg, #f472b6, #ec4899);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.4);
+}
+
+/* Bot indicator - adds pulse animation */
+.player-avatar.bot {
+  animation: bot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes bot-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
 
 .score-name {
   font-size: 0.75rem;
   color: #64748b;
   font-weight: 500;
   margin-bottom: 2px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .score-value {
@@ -229,4 +273,8 @@
   .timer-box { padding: 10px 20px; min-width: 80px; }
   .game-over-actions { flex-direction: column; width: 100%; max-width: 300px; }
   .reset-button, .menu-button { width: 100%; }
+  .score-box { min-width: 90px; padding: 10px 14px; }
+  .player-avatar { width: 30px; height: 30px; }
+  .player-avatar svg { width: 18px; height: 18px; }
+  .score-name { max-width: 65px; font-size: 0.7rem; }
 }

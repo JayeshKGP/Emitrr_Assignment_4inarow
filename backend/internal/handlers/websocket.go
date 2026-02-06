@@ -135,6 +135,9 @@ func (h *Handler) handleMessage(conn *websocket.Conn, message []byte) {
 		}
 		h.Hub.JoinRandom(conn, payload.Username)
 
+	case models.MsgPlayBot:
+		h.Hub.PlayBot(conn)
+
 	case models.MsgMakeMove:
 		var payload models.MovePayload
 		if err := parsePayload(msg.Payload, &payload); err != nil {

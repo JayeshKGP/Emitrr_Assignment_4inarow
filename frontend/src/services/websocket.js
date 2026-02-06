@@ -109,6 +109,10 @@ class WebSocketService {
     this.send('join_random', { username });
   }
 
+  playBot() {
+    this.send('play_bot', {});
+  }
+
   makeMove(column) {
     this.send('make_move', { column });
   }

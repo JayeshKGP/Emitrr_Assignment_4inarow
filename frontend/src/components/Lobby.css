@@ -64,12 +64,13 @@
 
 .player-stats {
   display: flex;
-  justify-content: space-around;
-  padding: 16px;
+  justify-content: space-between;
+  padding: 16px 12px;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   border-radius: 12px;
   margin-bottom: 16px;
   border: 1px solid #bae6fd;
+  gap: 8px;
 }
 
 .stat-item {
@@ -77,19 +78,36 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.stat-item.wins .stat-value {
+  color: #059669;
+}
+
+.stat-item.draws .stat-value {
+  color: #d97706;
+}
+
+.stat-item.score .stat-value {
+  color: #7c3aed;
 }
 
 .stat-value {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #02458b;
 }
 
 .stat-label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: 500;
 }
 
 .online-status {
@@ -165,6 +183,16 @@
 .action-btn.secondary:hover {
   background: #e0f2fe;
   border-color: #02458b;
+}
+
+.action-btn.bot {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  color: #fff;
+}
+
+.action-btn.bot:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
 }
 
 .btn-icon {
