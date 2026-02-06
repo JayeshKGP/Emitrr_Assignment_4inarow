@@ -606,17 +606,31 @@ func (h *Hub) cleanupRoom(roomID string, playerConn *websocket.Conn) {
 }
 
 func (h *Hub) broadcastOnlineCount() {
+	h.mu.RLock()
 	count := len(h.clients)
 	msg, _ := json.Marshal(models.WSMessage{
 		Type:    models.MsgOnlineCount,
 		Payload: models.OnlineCountPayload{Count: count},
 	})
 
+	// Collect client send channels while holding lock
+	sendChans := make([]chan []byte, 0, len(h.clients))
 	for _, client := range h.clients {
-		select {
-		case client.Send <- msg:
-		default:
-		}
+		sendChans = append(sendChans, client.Send)
+	}
+	h.mu.RUnlock()
+
+	// Send to all clients (safe send that handles closed channels)
+	for _, ch := range sendChans {
+		func() {
+			defer func() {
+				recover() // Ignore panic from closed channel
+			}()
+			select {
+			case ch <- msg:
+			default:
+			}
+		}()
 	}
 }
 
