@@ -128,20 +128,20 @@ func (r *Room) StartGame() {
 }
 
 // MakeMove processes a move
-func (r *Room) MakeMove(playerNum, col int) (row int, winner int, isDraw bool, err error) {
+func (r *Room) MakeMove(playerNum, col int) (row int, winner int, isDraw bool, winningCells [][2]int, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if !r.GameActive {
-		return -1, 0, false, ErrGameNotActive
+		return -1, 0, false, nil, ErrGameNotActive
 	}
 
 	if r.CurrentTurn != playerNum {
-		return -1, 0, false, ErrNotYourTurn
+		return -1, 0, false, nil, ErrNotYourTurn
 	}
 
 	if !r.GameEngine.IsValidMove(r.Board, col) {
-		return -1, 0, false, ErrInvalidMove
+		return -1, 0, false, nil, ErrInvalidMove
 	}
 
 	row = r.GameEngine.MakeMove(&r.Board, col, playerNum)
@@ -149,17 +149,18 @@ func (r *Room) MakeMove(playerNum, col int) (row int, winner int, isDraw bool, e
 
 	if r.GameEngine.CheckWin(r.Board, row, col, playerNum) {
 		r.GameActive = false
-		return row, playerNum, false, nil
+		winningCells = r.GameEngine.GetWinningCells(r.Board, row, col, playerNum)
+		return row, playerNum, false, winningCells, nil
 	}
 
 	if r.GameEngine.IsBoardFull(r.Board) {
 		r.GameActive = false
-		return row, 0, true, nil
+		return row, 0, true, nil, nil
 	}
 
 	// Switch turn
 	r.CurrentTurn = 3 - playerNum
-	return row, 0, false, nil
+	return row, 0, false, nil, nil
 }
 
 // GetOpponent returns the opponent player

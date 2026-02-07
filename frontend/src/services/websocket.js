@@ -19,20 +19,24 @@ class WebSocketService {
 
       this.ws = new WebSocket(WS_URL);
 
+      const connectionTimeout = setTimeout(() => {
+        reject(new Error('Connection timeout'));
+      }, 10000);
+
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        clearTimeout(connectionTimeout);
         this.reconnectAttempts = 0;
         resolve();
       };
 
       this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        clearTimeout(connectionTimeout);
         this.emit('disconnected', null);
         this.attemptReconnect();
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        clearTimeout(connectionTimeout);
         reject(error);
       };
 
@@ -41,7 +45,7 @@ class WebSocketService {
           const message = JSON.parse(event.data);
           this.emit(message.type, message.payload);
         } catch (err) {
-          console.error('Error parsing message:', err);
+          // Silent fail for parse errors
         }
       };
     });
@@ -54,8 +58,6 @@ class WebSocketService {
     }
 
     this.reconnectAttempts++;
-    console.log(`Attempting reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-
     setTimeout(() => {
       this.connect().catch(() => {});
     }, 2000 * this.reconnectAttempts);
@@ -71,12 +73,9 @@ class WebSocketService {
   send(type, payload = {}) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type, payload }));
-    } else {
-      console.error('WebSocket not connected');
     }
   }
 
-  // Event handling
   on(event, callback) {
     if (!this.listeners[event]) {
       this.listeners[event] = [];
@@ -130,6 +129,5 @@ class WebSocketService {
   }
 }
 
-// Singleton instance
 const wsService = new WebSocketService();
 export default wsService;

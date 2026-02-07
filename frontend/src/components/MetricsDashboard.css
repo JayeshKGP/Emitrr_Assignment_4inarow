@@ -1,0 +1,207 @@
+.metrics-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #ecfeff 100%);
+  padding: 20px;
+}
+
+.metrics-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 32px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(2, 69, 139, 0.15);
+  border: 1px solid rgba(2, 69, 139, 0.1);
+}
+
+.metrics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0f2fe;
+}
+
+.metrics-header h1 {
+  color: #02458b;
+  font-size: 1.5rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.close-btn {
+  background: #fff;
+  color: #64748b;
+  border: 1px solid #bae6fd;
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #f0f9ff;
+  border-color: #0ea5e9;
+  color: #02458b;
+}
+
+.live-badge {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.metrics-section {
+  margin-bottom: 24px;
+}
+
+.metrics-section:last-child {
+  margin-bottom: 0;
+}
+
+.metrics-section h2 {
+  color: #02458b;
+  font-size: 0.8rem;
+  margin: 0 0 14px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.metrics-grid.three-col {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.metric-box {
+  background: #fff;
+  border: 1px solid #bae6fd;
+  border-radius: 14px;
+  padding: 20px 16px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.metric-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(2, 69, 139, 0.1);
+}
+
+/* Live Games - Green */
+.metric-box.live {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border-color: #6ee7b7;
+}
+
+.metric-box.live .metric-value {
+  color: #059669;
+}
+
+/* Total Games - Dark Blue */
+.metric-box.total {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: #93c5fd;
+}
+
+.metric-box.total .metric-value {
+  color: #02458b;
+}
+
+/* Human vs Human - Cyan (Player 1 color) */
+.metric-box.human {
+  background: linear-gradient(145deg, #e0f7ff, #cff2fe);
+  border-color: #38bdf8;
+}
+
+.metric-box.human .metric-value {
+  color: #0ea5e9;
+}
+
+/* Human vs Bot - Pink (Player 2 color) */
+.metric-box.bot {
+  background: linear-gradient(145deg, #fce7f3, #fbcfe8);
+  border-color: #f472b6;
+}
+
+.metric-box.bot .metric-value {
+  color: #ec4899;
+}
+
+.metric-value {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #02458b;
+  margin-bottom: 6px;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.loading, .error {
+  color: #64748b;
+  text-align: center;
+  padding: 60px 20px;
+  font-size: 1rem;
+}
+
+.error {
+  color: #dc2626;
+}
+
+@media (max-width: 500px) {
+  .metrics-card {
+    padding: 24px;
+  }
+
+  .metrics-header {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+
+  .metrics-grid.three-col {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .metrics-grid.three-col .metric-box:last-child {
+    grid-column: span 2;
+  }
+
+  .metric-value {
+    font-size: 1.6rem;
+  }
+}

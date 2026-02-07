@@ -10,8 +10,8 @@
 .username-card {
   background: #fff;
   border-radius: 20px;
-  padding: 40px;
-  box-shadow: 0 8px 32px rgba(2, 69, 139, 0.15);
+  padding: 48px 40px;
+  box-shadow: 0 12px 40px rgba(2, 69, 139, 0.15);
   text-align: center;
   max-width: 400px;
   width: 100%;
@@ -19,51 +19,61 @@
 }
 
 .game-title {
-  font-size: 2.5rem;
+  font-size: 3rem;
   color: #02458b;
   margin-bottom: 8px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .game-subtitle {
   color: #0369a1;
   font-size: 1rem;
-  margin-bottom: 30px;
+  margin-bottom: 36px;
   opacity: 0.8;
 }
 
-.username-form { margin-bottom: 30px; }
+.username-form {
+  margin-bottom: 32px;
+}
 
 .username-input {
   width: 100%;
-  padding: 14px 18px;
+  padding: 16px 20px;
   font-size: 1rem;
   border: 2px solid #bae6fd;
   border-radius: 12px;
   background: #f0f9ff;
-  color: #0c4a6e;
+  color: #02458b;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  transition: all 0.2s;
+  text-align: center;
+  font-weight: 500;
 }
 
 .username-input:focus {
-  border-color: #02458b;
-  box-shadow: 0 0 0 3px rgba(2, 69, 139, 0.1);
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
   background: #fff;
 }
 
-.username-input::placeholder { color: #7dd3fc; }
+.username-input::placeholder {
+  color: #7dd3fc;
+}
 
 .error-message {
-  color: #ec4899;
+  color: #dc2626;
   font-size: 0.85rem;
-  margin: 10px 0;
+  margin: 12px 0;
+  padding: 10px;
+  background: #fef2f2;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
 }
 
 .play-button {
   width: 100%;
-  padding: 14px 28px;
-  margin-top: 15px;
+  padding: 16px 32px;
+  margin-top: 16px;
   font-size: 1.1rem;
   font-weight: 600;
   color: #fff;
@@ -71,39 +81,63 @@
   border: none;
   border-radius: 12px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 4px 15px rgba(2, 69, 139, 0.3);
 }
 
 .play-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(2, 69, 139, 0.3);
+  box-shadow: 0 8px 25px rgba(2, 69, 139, 0.4);
 }
 
-.play-button:active { transform: scale(0.98); }
+.play-button:active {
+  transform: scale(0.98);
+}
+
+.play-button:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
 
 .game-rules {
   text-align: left;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  padding: 20px;
-  border-radius: 12px;
+  padding: 20px 24px;
+  border-radius: 14px;
   border: 1px solid #bae6fd;
 }
 
 .game-rules h3 {
   color: #02458b;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   font-size: 0.9rem;
   font-weight: 600;
 }
 
 .game-rules ul {
   color: #0369a1;
-  padding-left: 18px;
+  padding-left: 20px;
   margin: 0;
 }
 
 .game-rules li {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-size: 0.85rem;
   line-height: 1.5;
+}
+
+.game-rules li:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 480px) {
+  .username-card {
+    padding: 32px 24px;
+  }
+
+  .game-title {
+    font-size: 2.5rem;
+  }
 }

@@ -22,11 +22,15 @@ func main() {
 	gameHub := hub.NewHub()
 	handler := handlers.NewHandler(gameHub)
 
+	// Cleanup on shutdown
+	defer gameHub.Close()
+
 	// Setup routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", handler.HandleWebSocket)
 	mux.HandleFunc("/health", handler.HealthCheck)
 	mux.HandleFunc("/api/leaderboard", handler.GetLeaderboard)
+	mux.HandleFunc("/api/metrics", handler.GetMetrics)
 
 	// CORS middleware
 	corsHandler := corsMiddleware(mux)

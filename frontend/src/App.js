@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import UsernameForm from './components/UsernameForm';
 import Lobby from './components/Lobby';
 import WaitingRoom from './components/WaitingRoom';
 import GameBoard from './components/GameBoard';
+import MetricsDashboard from './components/MetricsDashboard';
 import wsService from './services/websocket';
 import './App.css';
 
-// Game screens
 const SCREEN = {
   USERNAME: 'username',
   LOBBY: 'lobby',
@@ -21,16 +22,11 @@ function App() {
   const [roomId, setRoomId] = useState('');
   const [gameData, setGameData] = useState(null);
   const [error, setError] = useState('');
-  const [onlineCount, setOnlineCount] = useState(0);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const setupWebSocketListeners = useCallback(() => {
-    // Clear existing listeners to prevent duplicates
     wsService.listeners = {};
 
-    wsService.on('online_count', (data) => setOnlineCount(data?.count || 0));
-
-    // Login success - player validated/created in database
     wsService.on('login_success', (data) => {
       setUsername(data.username);
       setPlayerStats({
@@ -90,15 +86,13 @@ function App() {
     try {
       await wsService.connect();
       setupWebSocketListeners();
-      // Send login request to validate/create player in database
       wsService.login(name);
     } catch (err) {
-      setError('Failed to connect to server');
+      setError('Failed to connect to server. Is the backend running?');
       setIsLoggingIn(false);
     }
   }, [setupWebSocketListeners]);
 
-  // Check for saved username on mount - auto login
   useEffect(() => {
     const saved = localStorage.getItem('foursync_username');
     if (saved) {
@@ -134,7 +128,11 @@ function App() {
 
   const handleCreateRoom = () => {
     setError('');
-    const newRoomId = generateRoomId();
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let newRoomId = '';
+    for (let i = 0; i < 6; i++) {
+      newRoomId += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
     setRoomId(newRoomId);
     wsService.joinRoom(newRoomId, username);
   };
@@ -153,13 +151,8 @@ function App() {
     setError('');
   };
 
-  const generateRoomId = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = '';
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+  const handleOpenMetrics = () => {
+    window.open('/analytics', '_blank');
   };
 
   return (
@@ -176,13 +169,13 @@ function App() {
         <Lobby
           username={username}
           playerStats={playerStats}
-          onlineCount={onlineCount}
           error={error}
           onJoinRandom={handleJoinRandom}
           onPlayBot={handlePlayBot}
           onJoinRoom={handleJoinRoom}
           onCreateRoom={handleCreateRoom}
           onLogout={handleLogout}
+          onOpenMetrics={handleOpenMetrics}
         />
       )}
 
@@ -204,4 +197,19 @@ function App() {
   );
 }
 
-export default App;
+function AnalyticsPage() {
+  return <MetricsDashboard onBack={() => window.close()} />;
+}
+
+function AppWithRouter() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+      </Routes>
+    </Router>
+  );
+}
+
+export default AppWithRouter;

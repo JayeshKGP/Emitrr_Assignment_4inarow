@@ -10,11 +10,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jayeshdeshmukh/connect-four-backend/internal/bot"
 	"github.com/jayeshdeshmukh/connect-four-backend/internal/database"
+	"github.com/jayeshdeshmukh/connect-four-backend/internal/kafka"
 	"github.com/jayeshdeshmukh/connect-four-backend/internal/models"
 	"github.com/jayeshdeshmukh/connect-four-backend/internal/room"
 )
 
-// Client represents a connected WebSocket client
 type Client struct {
 	Conn      *websocket.Conn
 	PlayerID  string
@@ -24,51 +24,81 @@ type Client struct {
 	Send      chan []byte
 }
 
-// WaitingClient for random matchmaking
 type WaitingClient struct {
-	Client    *Client
-	JoinedAt  time.Time
+	Client   *Client
+	JoinedAt time.Time
 }
 
-// Hub manages all connections and rooms
 type Hub struct {
-	clients     map[*websocket.Conn]*Client
-	rooms       map[string]*room.Room
-	waiting     []*WaitingClient
-	mu          sync.RWMutex
-	broadcast   chan []byte
-	db          *database.Client
+	clients       map[*websocket.Conn]*Client
+	rooms         map[string]*room.Room
+	waiting       []*WaitingClient
+	mu            sync.RWMutex
+	broadcast     chan []byte
+	db            *database.Client
+	kafkaProducer *kafka.Producer
+	kafkaConsumer *kafka.Consumer
 }
 
-// NewHub creates a new hub
 func NewHub() *Hub {
 	h := &Hub{
-		clients:   make(map[*websocket.Conn]*Client),
-		rooms:     make(map[string]*room.Room),
-		waiting:   make([]*WaitingClient, 0),
-		broadcast: make(chan []byte),
-		db:        database.NewClient(),
+		clients:       make(map[*websocket.Conn]*Client),
+		rooms:         make(map[string]*room.Room),
+		waiting:       make([]*WaitingClient, 0),
+		broadcast:     make(chan []byte),
+		db:            database.NewClient(),
+		kafkaConsumer: kafka.NewConsumerWithoutKafka(),
 	}
+
+	go func() {
+		producer := kafka.NewProducer()
+		consumer := kafka.NewConsumer()
+
+		h.mu.Lock()
+		h.kafkaProducer = producer
+		if consumer.IsEnabled() {
+			h.kafkaConsumer = consumer
+		}
+		h.mu.Unlock()
+	}()
+
 	go h.runMatchmaking()
 	return h
 }
 
-// RegisterClient adds a new client
+func (h *Hub) Close() {
+	if h.kafkaProducer != nil {
+		h.kafkaProducer.Close()
+	}
+	if h.kafkaConsumer != nil {
+		h.kafkaConsumer.Close()
+	}
+}
+
+func (h *Hub) GetMetrics() kafka.CalculatedMetrics {
+	h.mu.RLock()
+	consumer := h.kafkaConsumer
+	h.mu.RUnlock()
+
+	if consumer == nil {
+		return kafka.CalculatedMetrics{}
+	}
+	return consumer.GetMetrics()
+}
+
 func (h *Hub) RegisterClient(conn *websocket.Conn) *Client {
 	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	client := &Client{
 		Conn: conn,
 		Send: make(chan []byte, 256),
 	}
 	h.clients[conn] = client
-	log.Printf("Client connected. Total online: %d", len(h.clients))
+	h.mu.Unlock()
+
 	h.broadcastOnlineCount()
 	return client
 }
 
-// UnregisterClient removes a client
 func (h *Hub) UnregisterClient(conn *websocket.Conn) {
 	h.mu.Lock()
 	client, ok := h.clients[conn]
@@ -77,21 +107,22 @@ func (h *Hub) UnregisterClient(conn *websocket.Conn) {
 		return
 	}
 
-	// Remove from waiting queue
 	h.removeFromWaiting(conn)
 
-	// Handle room cleanup
 	if client.RoomID != "" {
 		if r, exists := h.rooms[client.RoomID]; exists {
+			// If game was active, end it and update metrics
+			if r.GameActive {
+				h.endGameDueToLeave(r)
+			}
+
 			opponent := r.GetOpponent(client.PlayerNum)
 			r.RemovePlayer(conn)
 
-			// Notify opponent
 			if opponent != nil && opponent.Conn != nil {
 				h.sendToConn(opponent.Conn, models.MsgOpponentLeft, nil)
 			}
 
-			// Clean up empty room
 			if r.IsEmpty() {
 				delete(h.rooms, client.RoomID)
 			}
@@ -100,20 +131,17 @@ func (h *Hub) UnregisterClient(conn *websocket.Conn) {
 
 	delete(h.clients, conn)
 	close(client.Send)
-	count := len(h.clients)
 	h.mu.Unlock()
-	log.Printf("Client disconnected. Total online: %d", count)
+
 	h.broadcastOnlineCount()
 }
 
-// GetOnlineCount returns number of connected clients
 func (h *Hub) GetOnlineCount() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return len(h.clients)
 }
 
-// Login handles user login - validates/creates player in database
 func (h *Hub) Login(conn *websocket.Conn, username string) {
 	client := h.clients[conn]
 	if client == nil {
@@ -125,21 +153,17 @@ func (h *Hub) Login(conn *websocket.Conn, username string) {
 		return
 	}
 
-	// Get or create player in database
 	playerStats, err := h.db.LoginPlayer(username)
 	if err != nil {
-		log.Printf("Login error for %s: %v", username, err)
 		h.sendToConn(conn, models.MsgError, models.ErrorPayload{Message: "Login failed. Please try again."})
 		return
 	}
 
-	// Update client with player info
 	h.mu.Lock()
 	client.PlayerID = playerStats.PlayerID
 	client.Username = playerStats.Username
 	h.mu.Unlock()
 
-	// Send login success with player stats
 	h.sendToConn(conn, models.MsgLoginSuccess, models.LoginSuccessPayload{
 		PlayerID:   playerStats.PlayerID,
 		Username:   playerStats.Username,
@@ -148,11 +172,8 @@ func (h *Hub) Login(conn *websocket.Conn, username string) {
 		TotalGames: playerStats.TotalGames,
 		TotalScore: playerStats.TotalScore,
 	})
-
-	log.Printf("Player logged in: %s (ID: %s)", username, playerStats.PlayerID)
 }
 
-// JoinRoom handles joining a specific room
 func (h *Hub) JoinRoom(conn *websocket.Conn, roomID, username string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -163,20 +184,17 @@ func (h *Hub) JoinRoom(conn *websocket.Conn, roomID, username string) {
 	}
 	client.Username = username
 
-	// Get or create room
 	r, exists := h.rooms[roomID]
 	if !exists {
 		r = room.NewRoom(roomID)
 		h.rooms[roomID] = r
 	}
 
-	// Check if room is full
 	if r.IsFull() {
 		h.sendToConn(conn, models.MsgError, models.ErrorPayload{Message: "Room is full"})
 		return
 	}
 
-	// Add player to room
 	player, err := r.AddPlayer(conn, username)
 	if err != nil {
 		h.sendToConn(conn, models.MsgError, models.ErrorPayload{Message: err.Error()})
@@ -186,18 +204,15 @@ func (h *Hub) JoinRoom(conn *websocket.Conn, roomID, username string) {
 	client.RoomID = roomID
 	client.PlayerNum = player.Number
 
-	// If first player, send waiting message with room ID
 	if !r.IsFull() {
 		h.sendToConn(conn, models.MsgRoomCreated, models.RoomCreatedPayload{RoomID: roomID})
 		h.sendToConn(conn, models.MsgWaiting, nil)
 		return
 	}
 
-	// Room is full, start game
 	h.startGame(r)
 }
 
-// JoinRandom handles random matchmaking
 func (h *Hub) JoinRandom(conn *websocket.Conn, username string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -208,14 +223,12 @@ func (h *Hub) JoinRandom(conn *websocket.Conn, username string) {
 	}
 	client.Username = username
 
-	// Check if already waiting
 	for _, w := range h.waiting {
 		if w.Client.Conn == conn {
 			return
 		}
 	}
 
-	// Add to waiting queue
 	h.waiting = append(h.waiting, &WaitingClient{
 		Client:   client,
 		JoinedAt: time.Now(),
@@ -224,14 +237,12 @@ func (h *Hub) JoinRandom(conn *websocket.Conn, username string) {
 	h.sendToConn(conn, models.MsgWaiting, nil)
 }
 
-// CancelSearch removes from waiting queue
 func (h *Hub) CancelSearch(conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.removeFromWaiting(conn)
 }
 
-// PlayBot starts a game against the bot
 func (h *Hub) PlayBot(conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -265,7 +276,6 @@ func (h *Hub) removeFromWaiting(conn *websocket.Conn) {
 	}
 }
 
-// MakeMove handles a player's move
 func (h *Hub) MakeMove(conn *websocket.Conn, col int) {
 	h.mu.Lock()
 
@@ -281,14 +291,13 @@ func (h *Hub) MakeMove(conn *websocket.Conn, col int) {
 		return
 	}
 
-	row, winner, isDraw, err := r.MakeMove(client.PlayerNum, col)
+	_, winner, isDraw, winningCells, err := r.MakeMove(client.PlayerNum, col)
 	if err != nil {
 		h.sendToConn(conn, models.MsgError, models.ErrorPayload{Message: err.Error()})
 		h.mu.Unlock()
 		return
 	}
 
-	// Send move to opponent (if human)
 	opponent := r.GetOpponent(client.PlayerNum)
 	if opponent != nil && opponent.Conn != nil {
 		h.sendToConn(opponent.Conn, models.MsgOpponentMove, models.MovePayload{Column: col})
@@ -298,20 +307,17 @@ func (h *Hub) MakeMove(conn *websocket.Conn, col int) {
 		})
 	}
 
-	// Send state to current player
 	h.sendToConn(conn, models.MsgGameState, models.GameStatePayload{
 		Board:       r.Board,
 		CurrentTurn: r.CurrentTurn,
 	})
 
-	// Handle game over
 	if winner != 0 || isDraw {
-		h.handleGameOver(r, winner, isDraw, row, col)
+		h.handleGameOver(r, winner, isDraw, winningCells)
 		h.mu.Unlock()
 		return
 	}
 
-	// If bot game and now bot's turn, make bot move
 	if r.IsBotGame && r.GetCurrentTurn() == 2 && r.IsGameActive() {
 		roomID := r.ID
 		board := r.GetBoard()
@@ -337,9 +343,8 @@ func (h *Hub) makeBotMove(roomID string, board [6][7]int, playerConn *websocket.
 		return
 	}
 
-	row, winner, isDraw, err := r.MakeMove(2, botCol)
+	_, winner, isDraw, winningCells, err := r.MakeMove(2, botCol)
 	if err != nil {
-		log.Printf("Bot move error: %v", err)
 		return
 	}
 
@@ -350,11 +355,10 @@ func (h *Hub) makeBotMove(roomID string, board [6][7]int, playerConn *websocket.
 	})
 
 	if winner != 0 || isDraw {
-		h.handleGameOver(r, winner, isDraw, row, botCol)
+		h.handleGameOver(r, winner, isDraw, winningCells)
 	}
 }
 
-// PlayAgain resets the game in the same room
 func (h *Hub) PlayAgain(conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -385,7 +389,6 @@ func (h *Hub) PlayAgain(conn *websocket.Conn) {
 	}
 }
 
-// LeaveRoom handles leaving a room
 func (h *Hub) LeaveRoom(conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -400,15 +403,18 @@ func (h *Hub) LeaveRoom(conn *websocket.Conn) {
 		return
 	}
 
+	// If game was active, end it and update metrics
+	if r.GameActive {
+		h.endGameDueToLeave(r)
+	}
+
 	opponent := r.GetOpponent(client.PlayerNum)
 	r.RemovePlayer(conn)
 
-	// Notify opponent
 	if opponent != nil && opponent.Conn != nil {
 		h.sendToConn(opponent.Conn, models.MsgOpponentLeft, nil)
 	}
 
-	// Clean up empty room
 	if r.IsEmpty() {
 		delete(h.rooms, client.RoomID)
 	}
@@ -417,7 +423,6 @@ func (h *Hub) LeaveRoom(conn *websocket.Conn) {
 	client.PlayerNum = 0
 }
 
-// runMatchmaking periodically matches waiting players
 func (h *Hub) runMatchmaking() {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -433,7 +438,6 @@ func (h *Hub) processMatchmaking() {
 
 	now := time.Now()
 
-	// Check for timeouts (10 seconds) - auto-assign bot
 	for i := len(h.waiting) - 1; i >= 0; i-- {
 		if now.Sub(h.waiting[i].JoinedAt) > 10*time.Second {
 			client := h.waiting[i].Client
@@ -455,18 +459,15 @@ func (h *Hub) processMatchmaking() {
 		}
 	}
 
-	// Match players
 	for len(h.waiting) >= 2 {
 		p1 := h.waiting[0]
 		p2 := h.waiting[1]
 		h.waiting = h.waiting[2:]
 
-		// Create room
 		roomID := generateRoomID()
 		r := room.NewRoom(roomID)
 		h.rooms[roomID] = r
 
-		// Add players
 		player1, _ := r.AddPlayer(p1.Client.Conn, p1.Client.Username)
 		player2, _ := r.AddPlayer(p2.Client.Conn, p2.Client.Username)
 
@@ -475,7 +476,6 @@ func (h *Hub) processMatchmaking() {
 		p2.Client.RoomID = roomID
 		p2.Client.PlayerNum = player2.Number
 
-		// Start game
 		h.startGame(r)
 	}
 }
@@ -483,13 +483,18 @@ func (h *Hub) processMatchmaking() {
 func (h *Hub) startGame(r *room.Room) {
 	r.StartGame()
 	h.notifyGameStart(r)
+
+	if h.kafkaProducer != nil && h.kafkaProducer.IsEnabled() {
+		h.kafkaProducer.PublishGameStarted(r.ID, r.Player1.Username, r.Player2.Username, r.IsBotGame)
+	} else if h.kafkaConsumer != nil {
+		h.kafkaConsumer.IncrementLiveGames()
+	}
 }
 
 func (h *Hub) notifyGameStart(r *room.Room) {
 	p1 := r.Player1
 	p2 := r.Player2
 
-	// Send to player 1
 	if p1.Conn != nil {
 		h.sendToConn(p1.Conn, models.MsgGameStart, models.GameStartPayload{
 			RoomID:        r.ID,
@@ -502,7 +507,6 @@ func (h *Hub) notifyGameStart(r *room.Room) {
 		})
 	}
 
-	// Send to player 2 (skip if bot)
 	if p2.Conn != nil {
 		h.sendToConn(p2.Conn, models.MsgGameStart, models.GameStartPayload{
 			RoomID:        r.ID,
@@ -519,9 +523,15 @@ func (h *Hub) notifyGameStart(r *room.Room) {
 func (h *Hub) startBotGame(r *room.Room) {
 	r.StartGame()
 	h.notifyGameStart(r)
+
+	if h.kafkaProducer != nil && h.kafkaProducer.IsEnabled() {
+		h.kafkaProducer.PublishGameStarted(r.ID, r.Player1.Username, r.Player2.Username, true)
+	} else if h.kafkaConsumer != nil {
+		h.kafkaConsumer.IncrementLiveGames()
+	}
 }
 
-func (h *Hub) handleGameOver(r *room.Room, winner int, isDraw bool, row, col int) {
+func (h *Hub) handleGameOver(r *room.Room, winner int, isDraw bool, winningCells [][2]int) {
 	r.UpdateScores(winner)
 
 	p1 := r.Player1
@@ -546,6 +556,7 @@ func (h *Hub) handleGameOver(r *room.Room, winner int, isDraw bool, row, col int
 			WinnerName:    winnerName,
 			YourScore:     p1.Score,
 			OpponentScore: p2.Score,
+			WinningCells:  winningCells,
 		})
 	}
 
@@ -555,11 +566,22 @@ func (h *Hub) handleGameOver(r *room.Room, winner int, isDraw bool, row, col int
 			WinnerName:    winnerName,
 			YourScore:     p2.Score,
 			OpponentScore: p1.Score,
+			WinningCells:  winningCells,
 		})
 	}
 
 	isBotGame := r.IsBotGame
 	roomID := r.ID
+	totalMoves := r.MoveCount
+	durationSec := r.GetDuration()
+
+	if h.kafkaProducer != nil && h.kafkaProducer.IsEnabled() {
+		h.kafkaProducer.PublishGameEnded(roomID, p1.Username, p2.Username, winnerName, isDraw, isBotGame, totalMoves, durationSec)
+	} else if h.kafkaConsumer != nil {
+		h.kafkaConsumer.DecrementLiveGames()
+		h.kafkaConsumer.RecordGameEnd(isBotGame, durationSec, totalMoves)
+	}
+
 	go func() {
 		err := h.db.SaveGame(database.GameInput{
 			RoomID:          roomID,
@@ -568,41 +590,52 @@ func (h *Hub) handleGameOver(r *room.Room, winner int, isDraw bool, row, col int
 			WinnerUsername:  winnerUsername,
 			IsDraw:          isDraw,
 			IsBotGame:       isBotGame,
-			TotalMoves:      r.MoveCount,
-			DurationSeconds: r.GetDuration(),
+			TotalMoves:      totalMoves,
+			DurationSeconds: durationSec,
 		})
 		if err != nil {
-			log.Printf("Error saving game to database: %v", err)
-		} else {
-			log.Printf("Game saved: %s vs %s, winner: %s, bot: %v", p1.Username, p2.Username, winnerName, isBotGame)
+			log.Printf("Error saving game: %v", err)
 		}
 	}()
 
-	// Schedule room cleanup after game over (gives time for "Play Again" option)
-	// For bot games, clean up immediately since there's no "Play Again" with bot
 	if isBotGame {
 		go h.cleanupRoom(roomID, p1.Conn)
 	}
 }
 
-// cleanupRoom removes the room from memory and clears client's room reference
+// endGameDueToLeave handles when a player leaves during an active game
+func (h *Hub) endGameDueToLeave(r *room.Room) {
+	if !r.GameActive {
+		return
+	}
+
+	r.GameActive = false
+	isBotGame := r.IsBotGame
+	totalMoves := r.MoveCount
+	durationSec := r.GetDuration()
+
+	// Update metrics - decrement live games
+	if h.kafkaProducer != nil && h.kafkaProducer.IsEnabled() {
+		// Publish game ended event (no winner, player left)
+		h.kafkaProducer.PublishGameEnded(r.ID, r.Player1.Username, r.Player2.Username, "", false, isBotGame, totalMoves, durationSec)
+	} else if h.kafkaConsumer != nil {
+		h.kafkaConsumer.DecrementLiveGames()
+		h.kafkaConsumer.RecordGameEnd(isBotGame, durationSec, totalMoves)
+	}
+}
+
 func (h *Hub) cleanupRoom(roomID string, playerConn *websocket.Conn) {
-	// Small delay to ensure game over message is processed
 	time.Sleep(100 * time.Millisecond)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Delete the room
 	delete(h.rooms, roomID)
 
-	// Clear the client's room reference
 	if client, exists := h.clients[playerConn]; exists {
 		client.RoomID = ""
 		client.PlayerNum = 0
 	}
-
-	log.Printf("Room %s cleaned up from memory", roomID)
 }
 
 func (h *Hub) broadcastOnlineCount() {
@@ -613,19 +646,15 @@ func (h *Hub) broadcastOnlineCount() {
 		Payload: models.OnlineCountPayload{Count: count},
 	})
 
-	// Collect client send channels while holding lock
 	sendChans := make([]chan []byte, 0, len(h.clients))
 	for _, client := range h.clients {
 		sendChans = append(sendChans, client.Send)
 	}
 	h.mu.RUnlock()
 
-	// Send to all clients (safe send that handles closed channels)
 	for _, ch := range sendChans {
 		func() {
-			defer func() {
-				recover() // Ignore panic from closed channel
-			}()
+			defer func() { recover() }()
 			select {
 			case ch <- msg:
 			default:
@@ -637,7 +666,6 @@ func (h *Hub) broadcastOnlineCount() {
 func (h *Hub) sendToConn(conn *websocket.Conn, msgType string, payload interface{}) {
 	msg, err := json.Marshal(models.WSMessage{Type: msgType, Payload: payload})
 	if err != nil {
-		log.Printf("Error marshaling message: %v", err)
 		return
 	}
 
@@ -646,7 +674,6 @@ func (h *Hub) sendToConn(conn *websocket.Conn, msgType string, payload interface
 		select {
 		case client.Send <- msg:
 		default:
-			log.Printf("Client send buffer full")
 		}
 	}
 }

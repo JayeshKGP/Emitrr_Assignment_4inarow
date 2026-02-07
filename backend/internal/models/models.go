@@ -92,10 +92,11 @@ type GameStatePayload struct {
 
 // GameOverPayload - game ended
 type GameOverPayload struct {
-	Winner        int    `json:"winner"` // 0=draw, 1 or 2=winner
-	WinnerName    string `json:"winnerName"`
-	YourScore     int    `json:"yourScore"`
-	OpponentScore int    `json:"opponentScore"`
+	Winner        int       `json:"winner"` // 0=draw, 1 or 2=winner
+	WinnerName    string    `json:"winnerName"`
+	YourScore     int       `json:"yourScore"`
+	OpponentScore int       `json:"opponentScore"`
+	WinningCells  [][2]int  `json:"winningCells,omitempty"` // cells that caused the win
 }
 
 // ErrorPayload - error message

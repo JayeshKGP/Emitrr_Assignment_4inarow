@@ -65,3 +65,26 @@ func (e *Engine) IsBoardFull(board [6][7]int) bool {
 func (e *Engine) IsValidMove(board [6][7]int, col int) bool {
 	return col >= 0 && col < Cols && board[0][col] == Empty
 }
+
+// GetWinningCells returns the cells that form the winning line
+func (e *Engine) GetWinningCells(board [6][7]int, row, col, player int) [][2]int {
+	directions := [][2]int{{0, 1}, {1, 0}, {1, 1}, {1, -1}}
+
+	for _, dir := range directions {
+		cells := [][2]int{{row, col}}
+
+		// Positive direction
+		for r, c := row+dir[0], col+dir[1]; r >= 0 && r < Rows && c >= 0 && c < Cols && board[r][c] == player; r, c = r+dir[0], c+dir[1] {
+			cells = append(cells, [2]int{r, c})
+		}
+		// Negative direction
+		for r, c := row-dir[0], col-dir[1]; r >= 0 && r < Rows && c >= 0 && c < Cols && board[r][c] == player; r, c = r-dir[0], c-dir[1] {
+			cells = append(cells, [2]int{r, c})
+		}
+
+		if len(cells) >= 4 {
+			return cells
+		}
+	}
+	return nil
+}

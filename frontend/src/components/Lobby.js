@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './Lobby.css';
 
-function Lobby({ username, playerStats, onlineCount, error, onJoinRandom, onPlayBot, onJoinRoom, onCreateRoom, onLogout }) {
+function Lobby({ username, playerStats, error, onJoinRandom, onPlayBot, onJoinRoom, onCreateRoom, onLogout, onOpenMetrics }) {
   const [roomInput, setRoomInput] = useState('');
   const [showJoinRoom, setShowJoinRoom] = useState(false);
 
@@ -42,10 +42,10 @@ function Lobby({ username, playerStats, onlineCount, error, onJoinRandom, onPlay
           </div>
         </div>
 
-        <div className="online-status">
-          <span className="online-dot"></span>
-          <span>{onlineCount} player{onlineCount !== 1 ? 's' : ''} online</span>
-        </div>
+        <button className="analytics-btn" onClick={onOpenMetrics}>
+          <span className="analytics-icon">📊</span>
+          <span>View Analytics</span>
+        </button>
 
         {error && <div className="error-banner">{error}</div>}
 
@@ -103,13 +103,8 @@ function Lobby({ username, playerStats, onlineCount, error, onJoinRandom, onPlay
           )}
         </div>
 
-        <div className="lobby-rules">
-          <h3>How to Play</h3>
-          <ul>
-            <li>Take turns dropping discs into columns</li>
-            <li>Connect 4 discs in a row to win</li>
-            <li>Win: +2 points | Draw: +1 point</li>
-          </ul>
+        <div className="lobby-footer">
+          <p>Connect 4 discs in a row to win!</p>
         </div>
       </div>
     </div>

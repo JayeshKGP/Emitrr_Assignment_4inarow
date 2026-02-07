@@ -192,3 +192,12 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(leaderboard)
 }
+
+// GetMetrics returns game metrics from Kafka
+func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	metrics := h.Hub.GetMetrics()
+	json.NewEncoder(w).Encode(metrics)
+}

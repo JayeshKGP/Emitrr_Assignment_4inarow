@@ -69,9 +69,29 @@
   }
 }
 
+/* Winning cell indicator */
+.winning-mark {
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.4),
+               0 2px 4px rgba(0, 0, 0, 0.3);
+  animation: winning-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes winning-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
 /* Responsive */
 @media (max-width: 500px) {
   .cell { width: 44px; height: 44px; margin: 3px; border-radius: 6px; }
   .disc { width: 36px; height: 36px; }
   .last-move-dot { width: 10px; height: 10px; }
+  .winning-mark { font-size: 20px; }
 }

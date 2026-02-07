@@ -21,6 +21,7 @@ function GameBoard({ username, gameData, onBackToLobby }) {
   const [opponentScore, setOpponentScore] = useState(gameData.opponentScore || 0);
   const [playAgainRequested, setPlayAgainRequested] = useState(false);
   const [lastMove, setLastMove] = useState(null); // {row, col} of last move
+  const [winningCells, setWinningCells] = useState([]); // cells that caused the win
 
   const myNumber = gameData.yourNumber;
   const opponent = gameData.opponent;
@@ -73,6 +74,9 @@ function GameBoard({ username, gameData, onBackToLobby }) {
       setWinnerName(data.winnerName);
       setMyScore(data.yourScore);
       setOpponentScore(data.opponentScore);
+      if (data.winningCells) {
+        setWinningCells(data.winningCells);
+      }
     };
 
     const handleGameStart = (data) => {
@@ -90,6 +94,7 @@ function GameBoard({ username, gameData, onBackToLobby }) {
       setMoveTimeLeft(MOVE_TIME_LIMIT);
       setPlayAgainRequested(false);
       setLastMove(null); // Reset last move indicator
+      setWinningCells([]); // Reset winning cells
     };
 
     const handlePlayAgainReq = () => {
@@ -271,6 +276,7 @@ function GameBoard({ username, gameData, onBackToLobby }) {
               const targetRow = getLowestEmptyRow(colIndex);
               const isHighlighted = hoverColumn === colIndex && rowIndex === targetRow && gameStatus === 'playing' && isMyTurn;
               const isLastMove = lastMove && lastMove.row === rowIndex && lastMove.col === colIndex;
+              const isWinningCell = winningCells.some(([r, c]) => r === rowIndex && c === colIndex);
 
               return (
                 <Cell
@@ -282,6 +288,7 @@ function GameBoard({ username, gameData, onBackToLobby }) {
                   isClickable={gameStatus === 'playing' && isMyTurn && targetRow !== -1}
                   isHighlighted={isHighlighted}
                   isLastMove={isLastMove}
+                  isWinningCell={isWinningCell}
                   currentPlayer={myNumber}
                 />
               );
