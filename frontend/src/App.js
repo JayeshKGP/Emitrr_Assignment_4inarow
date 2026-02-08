@@ -5,6 +5,7 @@ import Lobby from './components/Lobby';
 import WaitingRoom from './components/WaitingRoom';
 import GameBoard from './components/GameBoard';
 import MetricsDashboard from './components/MetricsDashboard';
+import Leaderboard from './components/Leaderboard';
 import wsService from './services/websocket';
 import './App.css';
 
@@ -155,6 +156,10 @@ function App() {
     window.open('/analytics', '_blank');
   };
 
+  const handleOpenLeaderboard = () => {
+    window.open('/leaderboard', '_blank');
+  };
+
   return (
     <div className="App">
       {screen === SCREEN.USERNAME && (
@@ -176,6 +181,7 @@ function App() {
           onCreateRoom={handleCreateRoom}
           onLogout={handleLogout}
           onOpenMetrics={handleOpenMetrics}
+          onOpenLeaderboard={handleOpenLeaderboard}
         />
       )}
 
@@ -201,12 +207,17 @@ function AnalyticsPage() {
   return <MetricsDashboard onBack={() => window.close()} />;
 }
 
+function LeaderboardPage() {
+  return <Leaderboard onBack={() => window.close()} />;
+}
+
 function AppWithRouter() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/leaderboard" element={<LeaderboardPage />} />
       </Routes>
     </Router>
   );

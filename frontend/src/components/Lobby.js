@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './Lobby.css';
 
-function Lobby({ username, playerStats, error, onJoinRandom, onPlayBot, onJoinRoom, onCreateRoom, onLogout, onOpenMetrics }) {
+function Lobby({ username, playerStats, error, onJoinRandom, onPlayBot, onJoinRoom, onCreateRoom, onLogout, onOpenMetrics, onOpenLeaderboard }) {
   const [roomInput, setRoomInput] = useState('');
   const [showJoinRoom, setShowJoinRoom] = useState(false);
 
@@ -42,10 +42,16 @@ function Lobby({ username, playerStats, error, onJoinRandom, onPlayBot, onJoinRo
           </div>
         </div>
 
-        <button className="analytics-btn" onClick={onOpenMetrics}>
-          <span className="analytics-icon">📊</span>
-          <span>View Analytics</span>
-        </button>
+        <div className="quick-actions">
+          <button className="quick-btn leaderboard" onClick={onOpenLeaderboard}>
+            <span className="quick-icon">🏆</span>
+            <span>Leaderboard</span>
+          </button>
+          <button className="quick-btn analytics" onClick={onOpenMetrics}>
+            <span className="quick-icon">📊</span>
+            <span>Analytics</span>
+          </button>
+        </div>
 
         {error && <div className="error-banner">{error}</div>}
 

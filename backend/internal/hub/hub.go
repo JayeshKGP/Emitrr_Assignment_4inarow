@@ -364,12 +364,37 @@ func (h *Hub) PlayAgain(conn *websocket.Conn) {
 	defer h.mu.Unlock()
 
 	client := h.clients[conn]
-	if client == nil || client.RoomID == "" {
+	if client == nil {
 		return
 	}
 
+	// Check if previous room was a bot game or room doesn't exist anymore
 	r, exists := h.rooms[client.RoomID]
-	if !exists {
+
+	// For bot games or if room was cleaned up, start a new bot game immediately
+	if !exists || (exists && r.IsBotGame) {
+		// Clean up old room reference
+		if exists {
+			delete(h.rooms, client.RoomID)
+		}
+
+		// Create new bot game
+		roomID := generateRoomID()
+		newRoom := room.NewRoom(roomID)
+		h.rooms[roomID] = newRoom
+
+		player, _ := newRoom.AddPlayer(conn, client.Username)
+		newRoom.AddBotPlayer(bot.BotUsername)
+
+		client.RoomID = roomID
+		client.PlayerNum = player.Number
+
+		h.startBotGame(newRoom)
+		return
+	}
+
+	// For human vs human games
+	if client.RoomID == "" {
 		return
 	}
 
