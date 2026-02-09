@@ -27,6 +27,14 @@ func main() {
 
 	// Setup routes
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte("FourSync Backend Server is running"))
+	})
 	mux.HandleFunc("/ws", handler.HandleWebSocket)
 	mux.HandleFunc("/health", handler.HealthCheck)
 	mux.HandleFunc("/api/leaderboard", handler.GetLeaderboard)
